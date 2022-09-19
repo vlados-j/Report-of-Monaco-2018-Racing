@@ -43,8 +43,8 @@ def cli():
                  'exist')
     except KeyError:
         print('Probably there is the wrong racers name. Please, check the spelling')
-    except Exception:
-        print('Something went wrong!')
+    # except Exception:
+    #     print('Something went wrong!')
 
 
 def processing_data(start_path, finish_path, abbreviations_path):
@@ -62,7 +62,7 @@ def collecting_abbreviations(file_path: str):
     with open(file_path, 'r') as unsorted_file:
         racers_data = {}
         abbreviations = unsorted_file.read().splitlines()
-        abbreviations = list(filter(None, abbreviations))
+        abbreviations = [item for item in abbreviations if item]
         for each_racer in abbreviations:
             abbreviation, name, team = each_racer.strip().split('_')
             racers_data[abbreviation] = {'name': name, 'team': team}
@@ -74,17 +74,12 @@ def collecting_racers_data(start_file_path, finish_file_path, collected_data):
     Takes start and end paths to files, and previously created container from abbreviation file, and update the last
     file with info from start and end file (start and finish time). If there is no info about time, func assigns None.
     """
-    updated_data = update_racers_info(start_file_path, collected_data, 'start_time')
-    updated_data = update_racers_info(finish_file_path, updated_data, 'finish_time')
-    for racer in updated_data:
-        if 'finish_time' not in updated_data[racer]:
-            updated_data[racer]['finish_time'] = None
-        if 'start_time' not in updated_data[racer]:
-            updated_data[racer]['start_time'] = None
+    updated_data = time_uploader(start_file_path, collected_data, 'start_time')
+    updated_data = time_uploader(finish_file_path, updated_data, 'finish_time')
     return updated_data
 
 
-def update_racers_info(file_path, collected_data, key_title):
+def time_uploader(file_path, collected_data, key_title):
     """
     Function updates the container with info about the racer from start or end file.
     :param file_path: path to a file (start or end file).
@@ -95,7 +90,9 @@ def update_racers_info(file_path, collected_data, key_title):
     players_list = file_reader(file_path)
     for players_result in players_list:
         racers_data = players_result.strip()
-        collected_data[racers_data[:3]].update({key_title: racers_data[3:]})
+        abbreviation = racers_data[:3]
+        time = datetime.strptime(racers_data[3:], '%Y-%m-%d_%H:%M:%S.%f')
+        collected_data[abbreviation][key_title] = time
     return collected_data
 
 
@@ -105,7 +102,7 @@ def file_reader(file_path):
     """
     with open(file_path, 'r') as file:
         players_list = file.read().splitlines()
-        return list(filter(None, players_list))
+        return [item for item in players_list if item]
 
 
 class Racer:
@@ -119,15 +116,18 @@ class Racer:
         self.start_time = start_time
         self.finish_time = finish_time
 
+    def __lt__(self, other):
+        if self.lap_time and other.lap_time:
+            return self.lap_time < other.lap_time
+        elif other.lap_time:
+            return True
+        else:
+            return False
+
     @property
     def lap_time(self):
-        if self.start_time and self.finish_time:
-            start_time = datetime.strptime(self.start_time, '%Y-%m-%d_%H:%M:%S.%f')
-            finish_time = datetime.strptime(self.finish_time, '%Y-%m-%d_%H:%M:%S.%f')
-            if finish_time - start_time < timedelta(0):
-                return None
-            else:
-                return finish_time - start_time
+        if self.finish_time - self.start_time > timedelta(0):
+            return self.finish_time - self.start_time
         else:
             return None
 
@@ -143,8 +143,8 @@ def players_info(collected_data):
     structured_info = {collected_data[racer]['name']:
                            Racer(collected_data[racer]['name'],
                                  collected_data[racer]['team'],
-                                 collected_data[racer]['start_time'],
-                                 collected_data[racer]['finish_time']) for racer in collected_data}
+                                 collected_data[racer].get('start_time'),
+                                 collected_data[racer].get('finish_time')) for racer in collected_data}
     return structured_info
 
 
@@ -153,32 +153,32 @@ def build_report(structured_info, asc_flag):
     Func takes dict in format {name: Racer object, ...}, and split it into 2 lists (with correct time, and incorrect).
     Then sorts the list with correct data in requested order, and returns those 2 lists.
     """
-    info_for_report, info_with_incorrect_time = [], []
-    for racers_name, racer in structured_info.items():
-        if racer.lap_time:
-            info_for_report.append(racer)
-        else:
-            info_with_incorrect_time.append(racer)
-    info_for_report.sort(key=lambda x: x.lap_time, reverse=asc_flag)
-    return info_for_report, info_with_incorrect_time
+    # info_for_report, info_with_incorrect_time = [], []
+    # for racers_name, racer in structured_info.items():
+    #     if racer.lap_time:
+    #         info_for_report.append(racer)
+    #     else:
+    #         info_with_incorrect_time.append(racer)
+    info_for_report = sorted(structured_info.items(), key=lambda x: x[1].lap_time, reverse=asc_flag)
+    return info_for_report
 
 
 def print_report(prepared_info_for_report):
     """
     Func prints the information about all the racers with given lists with info about the racers.
     """
-    info_for_report, info_with_incorrect_time = prepared_info_for_report
-    counter = 0
-    for racer in info_for_report:
-        counter += 1
-        print(f"{counter} {racer.name : <20} | {racer.team : <25} | {racer.lap_time_str}")
-        if counter == 15:
-            print(70 * '-')
-    for racer in info_with_incorrect_time:
-        counter += 1
-        print(f"{counter} {racer.name : <20} | {racer.team : <25} | {racer.lap_time_str}")
-        if counter == 15:
-            print(70 * '-')
+    print(prepared_info_for_report)
+    # counter = 0
+    # for racer in info_for_report:
+    #     counter += 1
+    #     print(f"{counter} {racer.name : <20} | {racer.team : <25} | {racer.lap_time_str}")
+    #     if counter == 15:
+    #         print(70 * '-')
+    # for racer in info_with_incorrect_time:
+    #     counter += 1
+    #     print(f"{counter} {racer.name : <20} | {racer.team : <25} | {racer.lap_time_str}")
+    #     if counter == 15:
+    #         print(70 * '-')
 
 
 if __name__ == '__main__':
