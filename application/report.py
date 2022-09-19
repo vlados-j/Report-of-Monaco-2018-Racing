@@ -43,8 +43,8 @@ def cli():
                  'exist')
     except KeyError:
         print('Probably there is the wrong racers name. Please, check the spelling')
-    # except Exception:
-    #     print('Something went wrong!')
+    except Exception:
+        print('Something went wrong!')
 
 
 def processing_data(start_path, finish_path, abbreviations_path):
@@ -150,35 +150,25 @@ def players_info(collected_data):
 
 def build_report(structured_info, asc_flag):
     """
-    Func takes dict in format {name: Racer object, ...}, and split it into 2 lists (with correct time, and incorrect).
-    Then sorts the list with correct data in requested order, and returns those 2 lists.
+    Func takes dict in format {name: Racer object, ...}, creates a new list, and sorts all the racers in given by
+    asc_flag order.
     """
-    # info_for_report, info_with_incorrect_time = [], []
-    # for racers_name, racer in structured_info.items():
-    #     if racer.lap_time:
-    #         info_for_report.append(racer)
-    #     else:
-    #         info_with_incorrect_time.append(racer)
-    info_for_report = sorted(structured_info.items(), key=lambda x: x[1].lap_time, reverse=asc_flag)
+    info_for_report = sorted(structured_info.values(), reverse=asc_flag)
+    info_for_report.sort(key=lambda x: x.lap_time is None)
     return info_for_report
 
 
 def print_report(prepared_info_for_report):
     """
-    Func prints the information about all the racers with given lists with info about the racers.
+    Func prints the information about all the racers from given sorted list with the racer objects.
     """
-    print(prepared_info_for_report)
-    # counter = 0
-    # for racer in info_for_report:
-    #     counter += 1
-    #     print(f"{counter} {racer.name : <20} | {racer.team : <25} | {racer.lap_time_str}")
-    #     if counter == 15:
-    #         print(70 * '-')
-    # for racer in info_with_incorrect_time:
-    #     counter += 1
-    #     print(f"{counter} {racer.name : <20} | {racer.team : <25} | {racer.lap_time_str}")
-    #     if counter == 15:
-    #         print(70 * '-')
+    print([x.lap_time_str for x in prepared_info_for_report])
+    counter = 0
+    for racer in prepared_info_for_report:
+        counter += 1
+        print(f"{counter} {racer.name : <20} | {racer.team : <25} | {racer.lap_time_str}")
+        if counter == 15:
+            print(70 * '-')
 
 
 if __name__ == '__main__':
