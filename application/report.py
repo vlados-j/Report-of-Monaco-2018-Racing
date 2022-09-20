@@ -162,7 +162,6 @@ def print_report(prepared_info_for_report):
     """
     Func prints the information about all the racers from given sorted list with the racer objects.
     """
-    print([x.lap_time_str for x in prepared_info_for_report])
     counter = 0
     for racer in prepared_info_for_report:
         counter += 1
