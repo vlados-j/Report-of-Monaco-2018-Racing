@@ -6,12 +6,15 @@ from os import path
 def get_parser():
     """The parser for a command line"""
     my_parser = argparse.ArgumentParser(description='Shows the results table of F1 players, or stats of each player')
+    group = my_parser.add_mutually_exclusive_group()
 
     my_parser.add_argument('--files', type=str, required=True,
                            help='the path to folder with the logs and abbreviations')
     my_parser.add_argument('--driver', type=str, help='name of the specific driver to output info about him')
-    my_parser.add_argument('--asc', action='store_false', help='shows the list of players in ascending order by time')
-    my_parser.add_argument('--desc', action='store_true', help='shows the list of players in descending order by time')
+    group.add_argument('--asc', action='store_const', dest='order_flag', const=False,
+                       help='shows the list of players in ascending order by time')
+    group.add_argument('--desc', action='store_const', dest='order_flag', const=True,
+                       help='shows the list of players in descending order by time')
 
     return my_parser
 
@@ -23,6 +26,7 @@ def cli():
     """
     parser = get_parser()
     parsers_data = parser.parse_args()
+    order_flag = parsers_data.order_flag if parsers_data.order_flag else False
 
     start_path = path.join(parsers_data.files, 'start.log')
     finish_path = path.join(parsers_data.files, 'end.log')
@@ -36,15 +40,15 @@ def cli():
                   '\nTeam -', drivers_info.team,
                   '\nTime -', drivers_info.lap_time_str)
         else:
-            prepared_info_for_report = build_report(structured_info, parsers_data.desc)
-            print_report(prepared_info_for_report)
+            prepared_info_for_report = build_report(structured_info, order_flag)
+            print_report(prepared_info_for_report, order_flag)
     except FileNotFoundError as e:
         print(e, 'Please, check the folder path and if the files start.log, end.log, abbreviations.txt files are '
                  'exist')
     except KeyError:
         print('Probably there is the wrong racers name. Please, check the spelling')
-    except Exception:
-        print('Something went wrong!')
+    except Exception as e:
+        print('Something went wrong!', e)
 
 
 def processing_data(start_path, finish_path, abbreviations_path):
@@ -65,7 +69,7 @@ def collecting_abbreviations(file_path: str):
         abbreviations = [item for item in abbreviations if item]
         for each_racer in abbreviations:
             abbreviation, name, team = each_racer.strip().split('_')
-            racers_data[abbreviation] = {'name': name, 'team': team}
+            racers_data[abbreviation] = {'abbreviation': abbreviation, 'name': name, 'team': team}
         return racers_data
 
 
@@ -110,8 +114,9 @@ class Racer:
     Class Racer represents a racer with the properties such as name, team, start_time, finish_time, lap_time, lap_time_str
     """
 
-    def __init__(self, name, team, start_time, finish_time):
+    def __init__(self, name, abbreviation, team, start_time, finish_time):
         self.name = name
+        self.abbreviation = abbreviation
         self.team = team
         self.start_time = start_time
         self.finish_time = finish_time
@@ -119,10 +124,8 @@ class Racer:
     def __lt__(self, other):
         if self.lap_time and other.lap_time:
             return self.lap_time < other.lap_time
-        elif other.lap_time:
-            return True
         else:
-            return False
+            return other.lap_time is not None
 
     @property
     def lap_time(self):
@@ -133,7 +136,7 @@ class Racer:
 
     @property
     def lap_time_str(self):
-        return str(self.lap_time)[3:-3] if self.lap_time else None
+        return str(self.lap_time)[3:-3] if self.lap_time else "Incorrect data"
 
 
 def players_info(collected_data):
@@ -142,32 +145,55 @@ def players_info(collected_data):
     """
     structured_info = {collected_data[racer]['name']:
                            Racer(collected_data[racer]['name'],
+                                 collected_data[racer]['abbreviation'],
                                  collected_data[racer]['team'],
                                  collected_data[racer].get('start_time'),
                                  collected_data[racer].get('finish_time')) for racer in collected_data}
     return structured_info
 
 
-def build_report(structured_info, asc_flag):
+def build_report(structured_info, order_flag):
     """
     Func takes dict in format {name: Racer object, ...}, creates a new list, and sorts all the racers in given by
     asc_flag order.
     """
-    info_for_report = sorted(structured_info.values(), reverse=asc_flag)
-    info_for_report.sort(key=lambda x: x.lap_time is None)
-    return info_for_report
+    return sorted(structured_info.values(), reverse=order_flag)
 
 
-def print_report(prepared_info_for_report):
+def print_report(prepared_info_for_report: list, order: bool):
     """
     Func prints the information about all the racers from given sorted list with the racer objects.
     """
+    if order:
+        racer_counter = counter_of_valid_racers(prepared_info_for_report)
+        for racer in prepared_info_for_report:
+            if racer.lap_time:
+                print(f"{racer_counter} {racer.name : <20} | {racer.team : <25} | {racer.lap_time_str}")
+                if racer_counter == 16 or racer_counter == 1:
+                    print(70 * '-')
+                racer_counter -= 1
+            else:
+                print(f"- {racer.name : <20} | {racer.team : <25} | {racer.lap_time_str}")
+    else:
+        counter = 0
+        for racer in prepared_info_for_report:
+            if racer.lap_time:
+                counter += 1
+                print(f"{counter} {racer.name : <20} | {racer.team : <25} | {racer.lap_time_str}")
+                if counter == 15:
+                    print(70 * '-')
+        for racer in prepared_info_for_report:
+            if not racer.lap_time:
+                print(f"- {racer.name : <20} | {racer.team : <25} | {racer.lap_time_str}")
+
+
+def counter_of_valid_racers(list_of_racers):
+    """Takes a list of Racer objects and counts the racers with the valid lap time"""
     counter = 0
-    for racer in prepared_info_for_report:
-        counter += 1
-        print(f"{counter} {racer.name : <20} | {racer.team : <25} | {racer.lap_time_str}")
-        if counter == 15:
-            print(70 * '-')
+    for racer in list_of_racers:
+        if racer.lap_time:
+            counter += 1
+    return counter
 
 
 if __name__ == '__main__':
