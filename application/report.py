@@ -27,7 +27,7 @@ def cli():
     parser = get_parser()
     parsers_data = parser.parse_args()
 
-    start_path = path.join(parsers_data.files, '../files/start.log')
+    start_path = path.join(parsers_data.files, 'start.log')
     finish_path = path.join(parsers_data.files, 'end.log')
     abbreviations_path = path.join(parsers_data.files, 'abbreviations.txt')
 

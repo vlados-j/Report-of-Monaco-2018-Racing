@@ -1,1 +1,1 @@
-from report import cli
+from report import *
