@@ -127,7 +127,7 @@ class Racer:
 
     @property
     def lap_time(self):
-        if self.finish_time or self.start_time:
+        if self.finish_time and self.start_time:
             if self.finish_time - self.start_time > timedelta(0):
                 return self.finish_time - self.start_time
 
